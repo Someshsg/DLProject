@@ -1,59 +1,71 @@
 import streamlit as st
-import os
-os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
-import cv2
 import numpy as np
-
+import cv2
+import os
 import urllib.request
 
-# -----------------------------
-# Download Models Automatically
-# -----------------------------
-def download_models():
-    os.makedirs("models", exist_ok=True)
-
-    files = {
-        "models/deploy.prototxt":
-        "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
-
-        "models/res10_300x300_ssd_iter_140000_fp16.caffemodel":
-        "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000_fp16.caffemodel",
-
-        "models/age_deploy.prototxt":
-        "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/age_deploy.prototxt",
-
-        "models/age_net.caffemodel":
-        "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/age_net.caffemodel",
-
-        "models/gender_deploy.prototxt":
-        "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/gender_deploy.prototxt",
-
-        "models/gender_net.caffemodel":
-        "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/gender_net.caffemodel",
-    }
-
-    for file, url in files.items():
-        if not os.path.exists(file):
-            urllib.request.urlretrieve(url, file)
-
-download_models()
+# Fix OpenCV issue
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 
 # -----------------------------
-# Load Models
+# Create models folder if not exists
+# -----------------------------
+if not os.path.exists("models"):
+    os.makedirs("models")
+
+# -----------------------------
+# Download models automatically
+# -----------------------------
+def download_model(url, path):
+    if not os.path.exists(path):
+        urllib.request.urlretrieve(url, path)
+
+# Face model
+download_model(
+    "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
+    "models/deploy.prototxt"
+)
+download_model(
+    "https://github.com/opencv/opencv_3rdparty/raw/master/dnn_models/res10_300x300_ssd_iter_140000.caffemodel",
+    "models/res10.caffemodel"
+)
+
+# Age model
+download_model(
+    "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/age_deploy.prototxt",
+    "models/age.prototxt"
+)
+download_model(
+    "https://github.com/spmallick/learnopencv/raw/master/AgeGender/age_net.caffemodel",
+    "models/age.caffemodel"
+)
+
+# Gender model
+download_model(
+    "https://raw.githubusercontent.com/spmallick/learnopencv/master/AgeGender/gender_deploy.prototxt",
+    "models/gender.prototxt"
+)
+download_model(
+    "https://github.com/spmallick/learnopencv/raw/master/AgeGender/gender_net.caffemodel",
+    "models/gender.caffemodel"
+)
+
+# -----------------------------
+# Load models
 # -----------------------------
 face_net = cv2.dnn.readNetFromCaffe(
     "models/deploy.prototxt",
-    "models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
+    "models/res10.caffemodel"
 )
 
 age_net = cv2.dnn.readNetFromCaffe(
-    "models/age_deploy.prototxt",
-    "models/age_net.caffemodel"
+    "models/age.prototxt",
+    "models/age.caffemodel"
 )
 
 gender_net = cv2.dnn.readNetFromCaffe(
-    "models/gender_deploy.prototxt",
-    "models/gender_net.caffemodel"
+    "models/gender.prototxt",
+    "models/gender.caffemodel"
 )
 
 AGE_LIST = ['(0-2)', '(4-6)', '(8-12)', '(15-20)',
@@ -90,11 +102,9 @@ def predict(img):
                 (78.426, 87.768, 114.895), swapRB=False
             )
 
-            # Gender
             gender_net.setInput(blob_face)
             gender = GENDER_LIST[gender_net.forward()[0].argmax()]
 
-            # Age
             age_net.setInput(blob_face)
             age = AGE_LIST[age_net.forward()[0].argmax()]
 
@@ -109,10 +119,11 @@ def predict(img):
 # -----------------------------
 # UI
 # -----------------------------
-st.title("📸 Live Gender & Age Detection")
+st.title("📸 Gender & Age Detection App")
 
-option = st.radio("Choose Input Method:", ["Upload Image", "Use Camera"])
+option = st.radio("Choose Input:", ["Upload Image", "Use Camera"])
 
+# Upload
 if option == "Upload Image":
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
@@ -123,6 +134,7 @@ if option == "Upload Image":
         result = predict(img)
         st.image(result, channels="BGR")
 
+# Camera
 elif option == "Use Camera":
     camera_image = st.camera_input("Take a picture")
 
