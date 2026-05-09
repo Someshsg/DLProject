@@ -1,42 +1,72 @@
 import streamlit as st
-import numpy as np
+import torch
+import torchvision.transforms as transforms
 from PIL import Image
+import torchvision.models as models
 
-st.title("📸 Gender & Age Detection")
+# --------------------------
+# Load Pretrained Model
+# --------------------------
+model = models.resnet18(pretrained=True)
+model.fc = torch.nn.Linear(model.fc.in_features, 10)  # dummy output
+model.eval()
 
-st.write("Choose input method:")
+# --------------------------
+# Transform
+# --------------------------
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
 
-# Option selection
-option = st.radio("Select Option", ["Use Camera", "Upload Image"])
+# --------------------------
+# Fake Labels (for demo)
+# --------------------------
+GENDER = ["Male", "Female"]
+AGE = ["(0-10)", "(10-20)", "(20-30)", "(30-40)",
+       "(40-50)", "(50-60)", "(60-70)", "(70-80)"]
 
-# -----------------------------
-# CAMERA INPUT
-# -----------------------------
-if option == "Use Camera":
-    camera_image = st.camera_input("Take a picture")
+# --------------------------
+# Predict Function
+# --------------------------
+def predict(image):
+    img = transform(image).unsqueeze(0)
 
-    if camera_image:
-        img = Image.open(camera_image)
-        st.image(img, caption="Captured Image")
+    with torch.no_grad():
+        output = model(img)
 
-        st.success("Image Captured Successfully ✅")
+    # Dummy logic (replace with real trained model if needed)
+    gender = GENDER[torch.randint(0, 2, (1,)).item()]
+    age = AGE[torch.randint(0, 8, (1,)).item()]
 
-        # Dummy prediction
-        st.write("Gender: Male")
-        st.write("Age: (25-32)")
+    return gender, age
 
-# -----------------------------
-# FILE UPLOAD
-# -----------------------------
-elif option == "Upload Image":
-    uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
+# --------------------------
+# UI
+# --------------------------
+st.title("📸 Age & Gender Detection (PyTorch)")
 
-    if uploaded_file:
-        img = Image.open(uploaded_file)
-        st.image(img, caption="Uploaded Image")
+option = st.radio("Choose Input", ["Camera", "Upload Image"])
 
-        st.success("Image Uploaded Successfully ✅")
+# 📷 Camera
+if option == "Camera":
+    img_file = st.camera_input("Take Photo")
 
-        # Dummy prediction
-        st.write("Gender: Female")
-        st.write("Age: (20-25)")
+    if img_file:
+        image = Image.open(img_file)
+        gender, age = predict(image)
+
+        st.image(image)
+        st.success(f"Prediction: {gender}, {age}")
+
+# 📁 Upload
+else:
+    img_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
+
+    if img_file:
+        image = Image.open(img_file)
+        gender, age = predict(image)
+
+        st.image(image)
+        st.success(f"Prediction: {gender}, {age}")
+        
